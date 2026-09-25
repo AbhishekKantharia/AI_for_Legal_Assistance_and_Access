@@ -16,7 +16,7 @@ function localFallback(question, passages) {
   return answerDocumentQuestionGrounding(question, passages);
 }
 
-export async function askDocument({ question, documentModel, context = {}, passages: suppliedPassages }) {
+export async function askDocument({ question, documentModel, context = {}, passages: suppliedPassages = [] }) {
   if (!documentModel) throw new Error('Load a document before asking a question.');
   const trimmedQuestion = String(question || '').trim();
   if (!trimmedQuestion) throw new Error('Enter a question about the document.');

@@ -62,7 +62,7 @@ export function analyzeReadability(text) {
   let fleschKincaidGrade = 0.39 * wordsPerSentence + 11.8 * syllablesPerWord - 15.59;
   fleschKincaidGrade = Math.max(1, Math.round(fleschKincaidGrade * 10) / 10);
 
-  let gradeLabel = 'Plain English (Middle School)';
+  let gradeLabel;
   if (fleschKincaidGrade > 16) {
     gradeLabel = 'Post-Graduate / Dense Legalese';
   } else if (fleschKincaidGrade > 12) {

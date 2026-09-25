@@ -135,9 +135,16 @@ const CLAUSE_RULES = [
   },
 ];
 
+function stripControlCharacters(value) {
+  return Array.from(String(value || ''), (character) => {
+    const code = character.charCodeAt(0);
+    const isWhitespaceControl = code === 9 || code === 10 || code === 13;
+    return (code < 32 && !isWhitespaceControl) || code === 127 ? '' : character;
+  }).join('');
+}
+
 function normalizeText(text) {
-  return String(text || '')
-    .replace(/\u0000/g, '')
+  return stripControlCharacters(text)
     .replace(/\r\n?/g, '\n')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
@@ -151,10 +158,9 @@ function extensionOf(name) {
 }
 
 function safeFilename(name) {
-  return String(name || 'document.txt')
+  return stripControlCharacters(name || 'document.txt')
     .split(/[\\/]/)
     .pop()
-    .replace(/[\u0000-\u001f\u007f]/g, '')
     .replace(/[^a-zA-Z0-9._-]/g, '_')
     .replace(/^\.+/, '')
     .slice(0, 120) || 'document.txt';
@@ -238,7 +244,7 @@ export function extractTextFromPdfArrayBuffer(arrayBuffer) {
       .join('\n');
   }
 
-  return normalizeText(text.replace(/\u0000/g, ''));
+  return normalizeText(text);
 }
 
 function pageAtOffset(text, offset) {
@@ -615,7 +621,7 @@ export async function parseDocumentFile(file) {
   const validation = validateDocumentFile(file);
   if (!validation.valid) throw new Error(validation.error);
   const extension = extensionOf(validation.sanitizedName);
-  let rawText = '';
+  let rawText;
   try {
     if (extension === '.docx') {
       if (typeof file.arrayBuffer !== 'function') throw new Error('The DOCX could not be read in this browser.');

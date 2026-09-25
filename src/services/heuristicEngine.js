@@ -114,8 +114,6 @@ export function segmentDocumentIntoClauses(rawText) {
   if (!rawText || rawText.trim().length === 0) return [];
 
   // Match common headings: SECTION X, ARTICLE X, PARAGRAPH X, CLAUSE X, 1., 2., etc.
-  const regex = /(?:^|\n\n+)(SECTION\s+\d+[^.\n]*|ARTICLE\s+\d+[^.\n]*|PARAGRAPH\s+\d+[^.\n]*|\d+\.\s+[A-Z\s]{4,}|[A-Z\s]{5,}:?)(?:\.|\n|\s{2,})/gi;
-
   const rawClauses = [];
   const lines = rawText.split('\n');
   let currentHeader = 'Preamble / General Provisions';
@@ -215,11 +213,11 @@ export function analyzeClause(heading, clauseText, index) {
     }
   }
 
-  let riskLevel = 'FAIR';
-  let title = heading || `Clause ${index + 1}`;
-  let plainSummary = '';
-  let trapExplanation = '';
-  let counterProposal = '';
+  let riskLevel;
+  let title;
+  let plainSummary;
+  let trapExplanation;
+  let counterProposal;
 
   if (matchedPattern) {
     riskLevel = matchedPattern.riskLevel;

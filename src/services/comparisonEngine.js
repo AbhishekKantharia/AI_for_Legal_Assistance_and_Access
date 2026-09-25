@@ -55,8 +55,8 @@ function importantTextShift(clauseA, clauseB) {
 
 function buildRow(area, clauseA, clauseB, titleA, titleB) {
   if (!clauseA && !clauseB) return null;
-  let changeStatus = 'Unchanged';
-  let reviewSignificance = 'The matching area is unchanged.';
+  let changeStatus;
+  let reviewSignificance;
   let wordDiff = [];
 
   if (clauseA && !clauseB) {

@@ -38,7 +38,7 @@ export default function LegalCopilotQA({ documentText }) {
     const q = (queryText || inputQuery).trim();
     if (!q || isThinking) return;
 
-    const userMsg = { role: 'user', content: q };
+    const userMsg = { role: 'user', content: q, source: 'User' };
     setMessages((prev) => [...prev, userMsg]);
     setInputQuery('');
     setIsThinking(true);

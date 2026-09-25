@@ -1,4 +1,4 @@
-import { checkLegalAdviceRequest, formatGroundedOutput, safeExcerpt } from './legalSafety';
+import { checkLegalAdviceRequest, formatGroundedOutput } from './legalSafety';
 
 export const INTENTS = {
   SUMMARY: 'SUMMARY',
@@ -79,7 +79,6 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
   }
 
   const model = documentModel || { keyFacts: {}, clauses: [], reviewAreas: [], obligations: {}, datesAndDeadlines: [], checklist: [] };
-  const facts = model.keyFacts || {};
 
   if (intent === INTENTS.OUT_OF_SCOPE) {
     return routedOutput(intent, {

@@ -3,7 +3,7 @@ import {
   checkLegalAdviceRequest,
   calibrateLanguage,
   formatGroundedOutput,
-  LEGAL_DISCLAIMER_TEXT,
+  LEGAL_DISCLAIMER_SHORT,
 } from '../src/services/legalSafety';
 
 describe('ClauseGuard Legal Safety System', () => {
@@ -53,6 +53,7 @@ describe('ClauseGuard Legal Safety System', () => {
     });
 
     expect(output.disclaimer).toBeDefined();
+    expect(output.disclaimer).toBe(LEGAL_DISCLAIMER_SHORT);
     expect(output.sources.length).toBe(1);
   });
 });

@@ -20,7 +20,6 @@ export function compareContractVersions(docAText, docBText, titleA = 'Version A 
   analyzedA.forEach((cA, idxA) => {
     // Find matching clause in B
     let bestMatchIdx = -1;
-    let highestSim = 0;
 
     analyzedB.forEach((cB, idxB) => {
       if (matchedBIndices.has(idxB)) return;

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   fetchFederalRegulations,
-  fetchDocumentByNumber,
   sanitizeSearchInput,
   getSearchTermForClauseType,
 } from '../src/services/federalRegisterService';

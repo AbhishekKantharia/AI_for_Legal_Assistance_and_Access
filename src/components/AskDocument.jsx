@@ -50,7 +50,7 @@ export default function AskDocument({ documentModel }) {
     if (!q || !documentModel) return;
 
     const userMessageId = `user-${Date.now()}`;
-    const userMsg = { id: userMessageId, role: 'user', text: q };
+    const userMsg = { id: userMessageId, role: 'user', text: q, sources: [], confidence: 'low', isWelcome: false };
     setMessages((prev) => [...prev, userMsg]);
     setQuery('');
     setIsLoading(true);
@@ -74,6 +74,7 @@ export default function AskDocument({ documentModel }) {
             text: geminiRes.answer,
             sources: groundedCheck.sources,
             confidence: groundedCheck.confidence,
+            isWelcome: false,
             engine: 'Gemini 1.5 Flash (Grounded Live AI)',
           },
         ]);
@@ -96,12 +97,13 @@ export default function AskDocument({ documentModel }) {
             confidence: routedResult.confidence || 'medium',
             limitations: routedResult.limitations || [],
             intent: routedResult.intent,
+            isWelcome: false,
             engine: 'ClauseGuard Anti-Hallucination Engine (Grounded)',
           },
         ]);
       }
-    } catch (err) {
-      console.error('AskDocument Error:', err);
+    } catch (error) {
+      console.error('AskDocument Error:', error);
       setMessages((prev) => [
         ...prev,
         {
@@ -110,6 +112,7 @@ export default function AskDocument({ documentModel }) {
           text: "I couldn't process that query against the document. Please try asking in different words.",
           sources: [],
           confidence: 'low',
+          isWelcome: false,
         },
       ]);
     } finally {
