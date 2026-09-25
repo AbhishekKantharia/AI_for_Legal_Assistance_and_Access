@@ -22,8 +22,8 @@ export function classifyIntent(prompt) {
   if (/\b(?:ask|questions? for).{0,24}\b(?:lawyer|attorney|counsel)\b|\b(?:prepare|lawyer prep|consultation)\b/.test(lower)) return { intent: INTENTS.PREPARE_FOR_LAWYER, confidence: 0.95 };
   if (/\b(?:checklist|before signing|signing checklist|action items|steps before)\b/.test(lower)) return { intent: INTENTS.CHECKLIST, confidence: 0.92 };
   if (/\b(?:summarize|summary|overview|tldr|brief me|main points)\b/.test(lower)) return { intent: INTENTS.SUMMARY, confidence: 0.9 };
-  if (/\b(?:obligation|obligated|duties?|responsibilities|required to|what do i have to do|what am i required)\b/.test(lower)) return { intent: INTENTS.OBLIGATIONS, confidence: 0.9 };
-  if (/\b(?:deadline|dates?|timeline|notice period|when does|how many days|expiration)\b/.test(lower)) return { intent: INTENTS.DEADLINES, confidence: 0.88 };
+  if (/\b(?:obligations?|obligated|duties?|responsibilities|required to|what do i have to do|what am i required)\b/.test(lower)) return { intent: INTENTS.OBLIGATIONS, confidence: 0.9 };
+  if (/\b(?:deadlines?|dates?|timeline|notice periods?|when does|how many days|expiration)\b/.test(lower)) return { intent: INTENTS.DEADLINES, confidence: 0.88 };
   if (/\b(?:risk|risks|red flag|concern|review area|watch out|unusual|attention)\b/.test(lower)) return { intent: INTENTS.RISK_REVIEW, confidence: 0.88 };
 
   const clauseMatch = lower.match(/(?:explain|simplify|clarify|break down)\s+(?:section|article|paragraph|clause)\s+([0-9]+|[a-z]+)/i);
@@ -31,7 +31,7 @@ export function classifyIntent(prompt) {
     return { intent: INTENTS.EXPLAIN_CLAUSE, confidence: 0.9, targetClauseHint: clauseMatch?.[1] };
   }
   if (/\b(?:where does|find|does it mention|search for|locate)\b/.test(lower)) return { intent: INTENTS.FIND_INFORMATION, confidence: 0.86 };
-  if (/\b(?:weather|recipe|cook|bake|movie|sports score|write code|stock market)\b/.test(lower)) return { intent: INTENTS.OUT_OF_SCOPE, confidence: 0.92 };
+  if (/\b(?:weather|recipe|cook|bake|cookies?|cake|ingredients?|oven|movie|sports score|write code|stock market)\b/.test(lower)) return { intent: INTENTS.OUT_OF_SCOPE, confidence: 0.92 };
   return { intent: INTENTS.GENERAL_DOCUMENT_QUESTION, confidence: 0.7 };
 }
 
@@ -47,6 +47,10 @@ function sourceForClause(clause) {
 function formatList(items, emptyText) {
   if (!items.length) return emptyText;
   return items.map((item, index) => `${index + 1}. ${item}`).join('\n\n');
+}
+
+function routedOutput(intent, payload) {
+  return { intent: payload?.intent || intent, ...formatGroundedOutput(payload) };
 }
 
 function findTargetClause(model, hint) {
@@ -65,7 +69,8 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
   const grounded = typeof fallbackRAG === 'function' ? fallbackRAG(prompt, indexedPassages, options) : { answer: 'The document model is not ready yet.', sources: [], confidence: 'low' };
 
   if (safety.isLegalAdviceRequest) {
-    return formatGroundedOutput({
+    return routedOutput('LEGAL_ADVICE_REDIRECT', {
+      intent: 'LEGAL_ADVICE_REDIRECT',
       answer: `${safety.redirectGuidance}\n\nWhat the document says:\n${grounded.answer}`,
       sources: grounded.sources || [],
       confidence: grounded.confidence || 'low',
@@ -77,7 +82,7 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
   const facts = model.keyFacts || {};
 
   if (intent === INTENTS.OUT_OF_SCOPE) {
-    return formatGroundedOutput({
+    return routedOutput(intent, {
       answer: 'That question appears unrelated to the loaded legal document. ClauseGuard is focused on explaining, extracting from, and comparing legal documents.',
       sources: [],
       confidence: 'low',
@@ -87,7 +92,7 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
 
   if (intent === INTENTS.SUMMARY) {
     const sources = (model.clauses || []).slice(0, 2).map(sourceForClause);
-    return formatGroundedOutput({
+    return routedOutput(intent, {
       answer: model.executiveSummary || 'The document was processed, but no summary text is available.',
       sources,
       confidence: sources.length ? 'medium' : 'low',
@@ -100,7 +105,7 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
     if (!clause) {
       return grounded;
     }
-    return formatGroundedOutput({
+    return routedOutput(intent, {
       answer: `Plain English: ${clause.plainEnglish}\n\nWhy it matters: ${clause.whyItMatters}\n\nWhat to check: ${clause.whatToCheck}`,
       sources: [sourceForClause(clause)],
       confidence: 'medium',
@@ -116,8 +121,8 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
       your.length ? `Your side (${obligations.selectedRole || 'selected role'}):\n${formatList(your.map((item) => `${item.obligation} — deadline: ${item.deadline}`), '')}` : 'No obligations were confidently assigned to your side. Select your role if the document names different parties.',
       other.length ? `Other named party obligations:\n${formatList(other.map((item) => `${item.obligation} — deadline: ${item.deadline}`), '')}` : 'No other-party obligations were confidently identified.',
     ];
-    return formatGroundedOutput({
-      answer: lines.join('\n\n'),
+    return routedOutput(intent, {
+      answer: `Obligations by role:\n\n${lines.join('\n\n')}`,
       sources: [...your, ...other].map((item) => ({ section: item.source, page: item.page, excerpt: item.obligation })),
       confidence: 'medium',
       limitations: ['Obligation labels depend on the role selected and on the wording in the document.'],
@@ -126,7 +131,7 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
 
   if (intent === INTENTS.DEADLINES) {
     const dates = model.datesAndDeadlines || [];
-    return formatGroundedOutput({
+    return routedOutput(intent, {
       answer: formatList(dates.map((item) => `${item.dateString} — ${item.category}: ${item.sourceSnippet}`), 'I did not find an explicit calendar date or fixed time window in the document.'),
       sources: dates.map((item) => ({ section: item.category, page: item.page, excerpt: item.sourceSnippet })),
       confidence: dates.length ? 'medium' : 'low',
@@ -136,7 +141,7 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
 
   if (intent === INTENTS.RISK_REVIEW) {
     const areas = model.reviewAreas || [];
-    return formatGroundedOutput({
+    return routedOutput(intent, {
       answer: formatList(areas.map((area) => `${area.heading} — ${area.reviewSignal.badge}. ${area.whatToCheck}`), 'No elevated review signals were detected by the deterministic checks.'),
       sources: areas.map(sourceForClause),
       confidence: areas.length ? 'medium' : 'low',
@@ -146,7 +151,7 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
 
   if (intent === INTENTS.PREPARE_FOR_LAWYER) {
     const areas = model.reviewAreas || [];
-    return formatGroundedOutput({
+    return routedOutput(intent, {
       answer: `Here are neutral questions to prepare with a qualified legal professional:\n\n${formatList(areas.map((area) => `What should I understand about ${area.heading}, including ${area.whatToCheck.toLowerCase()}?`), 'Which terms are missing, unclear, or dependent on facts I should verify with a professional?')}`,
       sources: areas.map(sourceForClause),
       confidence: areas.length ? 'medium' : 'low',
@@ -156,7 +161,7 @@ export function routeUserQuery(prompt, documentModel, indexedPassages, fallbackR
 
   if (intent === INTENTS.CHECKLIST) {
     const checklist = model.checklist || [];
-    return formatGroundedOutput({
+    return routedOutput(intent, {
       answer: formatList(checklist.map((item) => `${item.text} (source: ${item.source})`), 'No document-specific checklist items were identified.'),
       sources: (model.reviewAreas || []).map(sourceForClause),
       confidence: checklist.length ? 'medium' : 'low',

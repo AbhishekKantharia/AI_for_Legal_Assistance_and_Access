@@ -23,7 +23,7 @@ const ROLE_PATTERNS = [
 const CLAUSE_RULES = [
   {
     category: 'Termination and early exit',
-    patterns: [/termination/i, /terminate/i, /cancel(?:lation)?/i, /surrender/i],
+    patterns: [/termination/i, /terminate/i, /cancel(?:lation)?/i],
     signal: 'attention',
     plain: 'This section explains when or how the agreement may end and what happens afterward.',
     why: 'Termination timing and conditions can affect planning, notice, and any remaining payments or duties.',
@@ -36,6 +36,14 @@ const CLAUSE_RULES = [
     plain: 'This section addresses renewal and the notice needed to prevent a later term.',
     why: 'A renewal window can affect whether the agreement continues automatically.',
     check: 'Record the renewal date, non-renewal deadline, and the required delivery method.',
+  },
+  {
+    category: 'Security Deposit',
+    patterns: [/security deposit/i, /deposit.*deduct/i, /deposit.*refund/i],
+    signal: 'attention',
+    plain: 'This section explains deposits, deductions, and the conditions for returning any balance.',
+    why: 'Deposit language can affect deductions, documentation, and the timing of a refund.',
+    check: 'Confirm the deposit amount, permitted deductions, documentation standard, and return deadline.',
   },
   {
     category: 'Payment and late fees',
@@ -411,7 +419,7 @@ function extractParties(text) {
 }
 
 function agreementTypeFor(text) {
-  if (/rental agreement|residential lease|lease agreement/i.test(text)) return 'Rental or residential lease agreement';
+  if (/rental agreement|residential lease|lease agreement/i.test(text)) return 'Residential Lease / Rental Agreement';
   if (/employment agreement|employment contract|offer of employment/i.test(text)) return 'Employment agreement';
   if (/services agreement|service agreement|statement of work|consulting agreement/i.test(text)) return 'Services agreement';
   if (/non-disclosure agreement|confidentiality agreement|\bnda\b/i.test(text)) return 'Non-disclosure agreement';
@@ -422,7 +430,7 @@ function agreementTypeFor(text) {
 export function extractKeyFacts(text) {
   const source = normalizeText(text);
   const partyData = extractParties(source);
-  const effective = source.match(/(?:effective as of|dated as of|made on|made on|entered into on|dated)\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{4})/i);
+  const effective = source.match(/(?:effective as of|dated as of|entered into as of|made on|entered into on|dated)\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{4})/i);
   const term = source.match(/(?:term of|for a term of|lease begins|remains in effect for)\s+([^.!?\n]{3,100})/i);
   const renewalSentence = findSentence(source, /automatic(?:ally)? renew|non-renewal|successive term/i);
   const law = source.match(/laws of the\s+(?:state|commonwealth|province)?\s*of\s+([A-Z][a-z]+)/i) || source.match(/governing law(?: is)?\s+([A-Z][a-z]+)/i);
@@ -477,7 +485,7 @@ export function extractStructuredObligations(text, agreementType = '', options =
       seen.add(key);
       const item = {
         obligation: safeExcerpt(sentence, 300),
-        responsibleParty: responsible.toLowerCase() === role.toLowerCase() ? `Your side (${responsible})` : `${responsible}`,
+        responsibleParty: responsible.toLowerCase() === role.toLowerCase() ? `Your side (${responsible})` : `Other Party (${responsible})`,
         deadline: deadline?.[1] || 'No specific deadline stated',
         source: clause.heading,
         page: clause.sourceLocation.page,
@@ -517,7 +525,7 @@ export function extractDatesAndDeadlines(text) {
     });
   };
 
-  const datePattern = /(?:\b(?:on|before|after|by|effective|expiring|expires|dated|commencing)\s+)([A-Z][a-z]+\s+\d{1,2},\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{4})/gi;
+  const datePattern = /(?:\b(?:on|before|after|by|as of|effective|expiring|expires|dated|commencing)\s+)([A-Z][a-z]+\s+\d{1,2},\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{4})/gi;
   let match;
   while ((match = datePattern.exec(source)) !== null) add(match, 'Calendar date', 'Fixed date', match[1]);
 

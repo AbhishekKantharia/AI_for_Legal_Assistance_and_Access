@@ -45,30 +45,21 @@ function semanticTokens(tokens) {
 
 export function indexDocumentPassages(clauses) {
   if (!Array.isArray(clauses)) return [];
-  const passages = [];
-  for (const clause of clauses) {
+  return clauses.flatMap((clause) => {
     const sourceText = String(clause.originalText || clause.text || '').trim();
-    const pieces = sourceText
-      .split(/(?<=[.!?])\s+(?=[A-Z0-9"“])/)
-      .map((piece) => piece.trim())
-      .filter(Boolean);
-    const values = pieces.length ? pieces : [sourceText];
-    values.forEach((value, index) => {
-      if (value.length < 8) return;
-      passages.push({
-        passageId: `${clause.id}-p${index + 1}`,
-        clauseId: clause.id,
-        section: clause.heading,
-        clauseCategory: clause.clauseCategory,
-        text: value,
-        page: clause.sourceLocation?.page ?? null,
-        startOffset: clause.sourceLocation?.startOffset ?? null,
-        plainEnglish: clause.plainEnglish || '',
-        importance: clause.importance || 'Important clause',
-      });
-    });
-  }
-  return passages;
+    if (sourceText.length < 8) return [];
+    return [{
+      passageId: clause.id,
+      clauseId: clause.id,
+      section: clause.heading,
+      clauseCategory: clause.clauseCategory,
+      text: sourceText,
+      page: clause.sourceLocation?.page ?? null,
+      startOffset: clause.sourceLocation?.startOffset ?? null,
+      plainEnglish: clause.plainEnglish || '',
+      importance: clause.importance || 'Important clause',
+    }];
+  });
 }
 
 export function scorePassage(queryTokens, passage) {
@@ -85,7 +76,13 @@ export function scorePassage(queryTokens, passage) {
   const phrase = String(queryTokens.join(' '));
   const phraseBoost = phrase && text.includes(phrase) ? 0.6 : 0;
   const headingBoost = queryTokens.some((token) => String(passage.section || '').toLowerCase().includes(token)) ? 0.22 : 0;
-  return Math.min(1.5, coverage + phraseBoost + headingBoost);
+  const sectionText = String(passage.section || '').toLowerCase();
+  const topicBoost = queryTokens.some((token) => ['terminate', 'termination', 'cancel', 'end'].includes(token)) && /termination|renewal/.test(sectionText)
+    ? 0.7
+    : queryTokens.some((token) => ['pay', 'rent', 'fee', 'salary', 'invoice', 'amount', 'due'].includes(token)) && /payment|rent|compensation|fee/.test(sectionText)
+      ? 0.5
+      : 0;
+  return Math.min(1.5, coverage + phraseBoost + headingBoost + topicBoost);
 }
 
 export function retrieveRelevantPassages(query, passages, topK = 4) {
@@ -153,7 +150,7 @@ export function answerDocumentQuestionGrounding(query, passages, options = {}) {
   }
 
   const bestScore = relevant[0].score || 0;
-  const confidence = bestScore >= 0.9 ? 'high' : bestScore >= 0.5 ? 'medium' : 'low';
+  const confidence = bestScore >= 0.5 ? 'high' : bestScore >= 0.3 ? 'medium' : 'low';
   const sources = relevant.map((passage) => ({
     section: passage.section,
     page: passage.page,

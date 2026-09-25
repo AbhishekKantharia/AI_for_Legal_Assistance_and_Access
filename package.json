@@ -1,7 +1,8 @@
 {
-  "name": "jurisease-ai-legal-assistant",
+  "name": "clauseguard-legal-assistant",
   "private": true,
   "version": "1.0.0",
+  "description": "A source-linked, local-first document understanding workspace for legal information access.",
   "type": "module",
   "scripts": {
     "dev": "vite",

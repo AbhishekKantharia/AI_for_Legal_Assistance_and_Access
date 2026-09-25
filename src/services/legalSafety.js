@@ -9,7 +9,7 @@ export const NO_EVIDENCE_MESSAGE =
 
 export const REVIEW_SIGNALS = {
   attention: {
-    badge: 'Requires attention',
+    badge: 'Requires Attention',
     severity: 'attention',
     tone: 'A notable obligation, condition, or allocation of responsibility to review.',
   },
@@ -77,7 +77,7 @@ export function checkLegalAdviceRequest(prompt) {
 export function calibrateLanguage(value) {
   if (!value || typeof value !== 'string') return '';
   return value
-    .replace(/this contract is illegal/gi, 'this provision may warrant review under applicable law')
+    .replace(/this contract is illegal/gi, 'this provision may warrant review for statutory restrictions worth verifying under applicable law')
     .replace(/you will definitely lose/gi, 'the outcome cannot be predicted from the document alone')
     .replace(/this is completely unenforceable/gi, 'enforceability may depend on applicable law and facts')
     .replace(/you must not sign this/gi, 'you may want to pause and discuss this specific clause with legal counsel')
