@@ -11,10 +11,12 @@ import {
   FileCheck2,
   CheckCircle2,
   Eye,
-  Info
+  Landmark,
+  Layers
 } from 'lucide-react';
 import { SAMPLE_DOCUMENTS } from '../data/sampleDocuments';
 import { sanitizePII } from '../services/piiSanitizer';
+import FederalRegisterBrowser from './FederalRegisterBrowser';
 
 export default function DocumentInput({
   documentText,
@@ -25,13 +27,16 @@ export default function DocumentInput({
   setPiiShieldEnabled,
   selectedPresetId,
   setSelectedPresetId,
+  setDocumentTitle,
 }) {
+  const [inputSource, setInputSource] = useState('templates'); // 'templates' | 'live-gov' | 'custom'
   const [showPiiPreview, setShowPiiPreview] = useState(false);
   const piiStats = sanitizePII(documentText);
 
   const handlePresetSelect = (preset) => {
     setSelectedPresetId(preset.id);
     setDocumentText(preset.text);
+    if (setDocumentTitle) setDocumentTitle(preset.title);
   };
 
   const handleFileUpload = (e) => {
@@ -44,9 +49,18 @@ export default function DocumentInput({
       if (typeof content === 'string') {
         setSelectedPresetId('custom');
         setDocumentText(content);
+        if (setDocumentTitle) setDocumentTitle(file.name.replace(/\.[^/.]+$/, ''));
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleImportFromFederalRegister = (formattedText, title) => {
+    setSelectedPresetId('federal-register-live');
+    setDocumentText(formattedText);
+    if (setDocumentTitle) setDocumentTitle(title);
+    setInputSource('custom');
+    if (onAnalyze) onAnalyze(formattedText, title);
   };
 
   const getPresetIcon = (id) => {
@@ -69,7 +83,7 @@ export default function DocumentInput({
             Select or Upload Legal Agreement
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Choose a representative consumer/small-business agreement or paste your custom contract.
+            Choose a standard contract, browse verified live government regulations, or paste your agreement.
           </p>
         </div>
 
@@ -114,51 +128,98 @@ export default function DocumentInput({
         </div>
       </div>
 
-      {/* Preset Buttons Grid */}
+      {/* Input Source Selector Tabs */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-        gap: '10px',
+        display: 'flex',
+        gap: '8px',
         marginBottom: '16px',
+        borderBottom: '1px solid var(--border-color)',
+        paddingBottom: '12px',
+        flexWrap: 'wrap',
       }}>
-        {SAMPLE_DOCUMENTS.map((doc) => {
-          const isSelected = selectedPresetId === doc.id;
-          return (
-            <button
-              key={doc.id}
-              onClick={() => handlePresetSelect(doc)}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '10px',
-                padding: '12px',
-                background: isSelected ? 'var(--brand-gradient-subtle)' : 'var(--bg-secondary)',
-                border: `1px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-color)'}`,
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--text-primary)',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all var(--transition-fast)',
-              }}
-            >
-              <div style={{
-                color: isSelected ? 'var(--brand-primary)' : 'var(--text-secondary)',
-                marginTop: '2px',
-              }}>
-                {getPresetIcon(doc.id)}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isSelected ? '#ffffff' : 'var(--text-primary)' }}>
-                  {doc.title}
-                </div>
-                <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {doc.category}
-                </div>
-              </div>
-            </button>
-          );
-        })}
+        <button
+          onClick={() => setInputSource('templates')}
+          className={`btn btn-sm ${inputSource === 'templates' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Layers size={14} />
+          <span>Standard Agreements ({SAMPLE_DOCUMENTS.length})</span>
+        </button>
+
+        <button
+          onClick={() => setInputSource('live-gov')}
+          className={`btn btn-sm ${inputSource === 'live-gov' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Landmark size={14} />
+          <span>Verified Live Federal Register API</span>
+          <span className="badge badge-fair" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>
+            Live
+          </span>
+        </button>
+
+        <button
+          onClick={() => setInputSource('custom')}
+          className={`btn btn-sm ${inputSource === 'custom' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <FileText size={14} />
+          <span>Custom Contract Editor</span>
+        </button>
       </div>
+
+      {/* Live Government Regulations Browser */}
+      {inputSource === 'live-gov' && (
+        <FederalRegisterBrowser onImportDocument={handleImportFromFederalRegister} />
+      )}
+
+      {/* Preset Buttons Grid */}
+      {inputSource === 'templates' && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+          gap: '10px',
+          marginBottom: '16px',
+        }}>
+          {SAMPLE_DOCUMENTS.map((doc) => {
+            const isSelected = selectedPresetId === doc.id;
+            return (
+              <button
+                key={doc.id}
+                onClick={() => handlePresetSelect(doc)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px',
+                  padding: '12px',
+                  background: isSelected ? 'var(--brand-gradient-subtle)' : 'var(--bg-secondary)',
+                  border: `1px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-color)'}`,
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all var(--transition-fast)',
+                }}
+              >
+                <div style={{
+                  color: isSelected ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                  marginTop: '2px',
+                }}>
+                  {getPresetIcon(doc.id)}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: isSelected ? '#ffffff' : 'var(--text-primary)' }}>
+                    {doc.title}
+                  </div>
+                  <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {doc.category}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* PII Masking Preview Banner */}
       {showPiiPreview && piiShieldEnabled && piiStats.tokensReplaced > 0 && (
@@ -234,7 +295,7 @@ export default function DocumentInput({
 
         {/* Run Analysis CTA */}
         <button
-          onClick={onAnalyze}
+          onClick={() => onAnalyze()}
           disabled={isAnalyzing || !documentText.trim()}
           className="btn btn-primary"
           style={{

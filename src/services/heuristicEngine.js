@@ -125,11 +125,13 @@ export function segmentDocumentIntoClauses(rawText) {
     const line = lines[i];
     const isHeader = /^(SECTION\s+\d+|ARTICLE\s+\d+|PARAGRAPH\s+\d+|\d+\.\s+[A-Z\s]{3,}|[A-Z\s]{4,}:?$)/i.test(line.trim());
 
-    if (isHeader && currentContent.length > 0) {
-      rawClauses.push({
-        heading: currentHeader.trim(),
-        text: currentContent.join('\n').trim(),
-      });
+    if (isHeader) {
+      if (currentContent.join('').trim().length > 0) {
+        rawClauses.push({
+          heading: currentHeader.trim(),
+          text: currentContent.join('\n').trim(),
+        });
+      }
       currentHeader = line.trim();
       currentContent = [];
     } else {
@@ -137,7 +139,7 @@ export function segmentDocumentIntoClauses(rawText) {
     }
   }
 
-  if (currentContent.length > 0) {
+  if (currentContent.join('').trim().length > 0) {
     rawClauses.push({
       heading: currentHeader.trim(),
       text: currentContent.join('\n').trim(),
@@ -255,6 +257,7 @@ export function analyzeClause(heading, clauseText, index) {
     id: `clause-${index + 1}`,
     heading,
     title,
+    type: matchedPattern ? matchedPattern.type : 'GENERAL',
     originalText: clauseText,
     plainSummary,
     riskLevel, // 'CRITICAL' | 'CAUTION' | 'FAIR'

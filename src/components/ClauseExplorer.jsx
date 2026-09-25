@@ -8,16 +8,26 @@ import {
   Volume2,
   VolumeX,
   Search,
-  MessageSquare,
   Sparkles,
-  ArrowRight
+  Landmark,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Building2
 } from 'lucide-react';
+import { fetchFederalRegulations, getSearchTermForClauseType } from '../services/federalRegisterService';
 
 export default function ClauseExplorer({ clauses }) {
   const [filter, setFilter] = useState('ALL'); // 'ALL' | 'CRITICAL' | 'CAUTION' | 'FAIR'
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState(null);
   const [activeSpeechClauseId, setActiveSpeechClauseId] = useState(null);
+
+  // Live Federal Regulations Lookup State
+  const [activeRegClauseId, setActiveRegClauseId] = useState(null);
+  const [loadingRegs, setLoadingRegs] = useState(false);
+  const [regCache, setRegCache] = useState({});
 
   if (!clauses || clauses.length === 0) {
     return (
@@ -64,6 +74,31 @@ export default function ClauseExplorer({ clauses }) {
 
       window.speechSynthesis.speak(utterance);
       setActiveSpeechClauseId(clause.id);
+    }
+  };
+
+  const handleToggleRegulations = async (clause) => {
+    if (activeRegClauseId === clause.id) {
+      setActiveRegClauseId(null);
+      return;
+    }
+
+    setActiveRegClauseId(clause.id);
+
+    // If already in cache, do not re-fetch
+    if (regCache[clause.id]) return;
+
+    setLoadingRegs(true);
+    const searchTerm = getSearchTermForClauseType(clause.type || 'GENERAL');
+
+    try {
+      const data = await fetchFederalRegulations(searchTerm, { perPage: 2 });
+      setRegCache((prev) => ({ ...prev, [clause.id]: data.results || [] }));
+    } catch (err) {
+      console.error('Failed to load federal regulations for clause:', err);
+      setRegCache((prev) => ({ ...prev, [clause.id]: [] }));
+    } finally {
+      setLoadingRegs(false);
     }
   };
 
@@ -165,7 +200,7 @@ export default function ClauseExplorer({ clauses }) {
 
       {/* Clause Cards List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {filteredClauses.map((clause, idx) => (
+        {filteredClauses.map((clause) => (
           <div
             key={clause.id}
             className="card"
@@ -197,16 +232,107 @@ export default function ClauseExplorer({ clauses }) {
                 {getRiskBadge(clause.riskLevel)}
               </div>
 
-              {/* Read Aloud button */}
-              <button
-                onClick={() => handleSpeakClause(clause)}
-                className="btn btn-secondary btn-sm"
-                title="Read clause summary aloud (TTS)"
-              >
-                {activeSpeechClauseId === clause.id ? <VolumeX size={15} color="var(--brand-primary)" /> : <Volume2 size={15} />}
-                <span>{activeSpeechClauseId === clause.id ? 'Stop Audio' : 'Listen'}</span>
-              </button>
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {/* Live Federal Register Lookup Button */}
+                <button
+                  onClick={() => handleToggleRegulations(clause)}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    borderColor: activeRegClauseId === clause.id ? 'var(--brand-primary)' : 'var(--border-color)',
+                    color: activeRegClauseId === clause.id ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                  }}
+                  title="Check live U.S. Federal Register regulations for this clause type"
+                >
+                  <Landmark size={14} />
+                  <span>Federal Rules</span>
+                  {activeRegClauseId === clause.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </button>
+
+                {/* Read Aloud button */}
+                <button
+                  onClick={() => handleSpeakClause(clause)}
+                  className="btn btn-secondary btn-sm"
+                  title="Read clause summary aloud (TTS)"
+                >
+                  {activeSpeechClauseId === clause.id ? <VolumeX size={15} color="var(--brand-primary)" /> : <Volume2 size={15} />}
+                  <span>{activeSpeechClauseId === clause.id ? 'Stop Audio' : 'Listen'}</span>
+                </button>
+              </div>
             </div>
+
+            {/* Live Federal Register Regulations Accordion Panel */}
+            {activeRegClauseId === clause.id && (
+              <div style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--brand-primary)',
+                borderRadius: 'var(--radius-md)',
+                padding: '14px 16px',
+                marginBottom: '16px',
+                fontSize: '0.825rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: 'var(--brand-primary)' }}>
+                    <Landmark size={15} />
+                    <span>Official Federal Register Precedents & Agency Guidance</span>
+                  </div>
+                  <span className="badge badge-fair" style={{ fontSize: '0.65rem' }}>
+                    Live API Verified
+                  </span>
+                </div>
+
+                {loadingRegs ? (
+                  <div style={{ color: 'var(--text-muted)', padding: '10px 0' }}>
+                    Fetching relevant federal regulations from federalregister.gov...
+                  </div>
+                ) : (regCache[clause.id] || []).length === 0 ? (
+                  <div style={{ color: 'var(--text-muted)' }}>
+                    No specific federal rulemaking found for this category query.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {regCache[clause.id].map((reg) => (
+                      <div
+                        key={reg.document_number}
+                        style={{
+                          background: 'var(--bg-input)',
+                          padding: '10px 12px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border-color)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {reg.title}
+                            </div>
+                            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', display: 'flex', gap: '10px', marginTop: '2px' }}>
+                              <span>Doc #{reg.document_number}</span>
+                              <span>•</span>
+                              <span>{reg.agencies.map(a => a.name).join(', ') || 'Federal Agency'}</span>
+                              <span>•</span>
+                              <span>{reg.publication_date}</span>
+                            </div>
+                          </div>
+                          {reg.html_url && (
+                            <a
+                              href={reg.html_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-secondary btn-sm"
+                              style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                            >
+                              <ExternalLink size={12} />
+                              <span>View Rule</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Side-by-Side Comparison: Legalese vs Plain English */}
             <div style={{
@@ -234,7 +360,7 @@ export default function ClauseExplorer({ clauses }) {
                 }}>
                   <span>Original Legal Text</span>
                   <span style={{ fontSize: '0.7rem' }}>
-                    Grade {clause.readabilityOriginal.fleschKincaidGrade}
+                    Grade {clause.readabilityOriginal?.fleschKincaidGrade || 'N/A'}
                   </span>
                 </div>
                 <div style={{
