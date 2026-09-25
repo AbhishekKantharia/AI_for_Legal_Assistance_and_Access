@@ -12,4 +12,19 @@ export default defineConfig({
     port: 3000,
     open: false,
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor: React runtime
+          'vendor-react': ['react', 'react-dom'],
+          // Vendor: Lucide icons
+          'vendor-icons': ['lucide-react'],
+          // Vendor: DOCX parser
+          'vendor-mammoth': ['mammoth'],
+        },
+      },
+    },
+  },
 });

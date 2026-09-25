@@ -21,7 +21,7 @@ export default function DisclaimerBanner() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '1300px' }}>
         <ShieldAlert size={18} style={{ flexShrink: 0 }} />
         <span>
-          <strong>Ethical AI & Legal Responsibility Notice:</strong> JurisEase AI provides educational document simplification, risk signals, and consultation preparation. It is <em>not a law firm</em> and does not offer binding legal advice. Always review critical contracts with a licensed attorney in your jurisdiction before executing.
+          <strong>Ethical AI & Legal Responsibility Notice:</strong> ClauseGuard provides document understanding and general information. It does not provide legal advice, determine whether a document is legally enforceable, or replace a qualified lawyer. Always discuss important provisions with a licensed attorney in your jurisdiction before signing.
         </span>
       </div>
       <button

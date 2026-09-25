@@ -1,13 +1,19 @@
 /**
- * Google Gemini GenAI Integration Service
- * Connects to Gemini 1.5 Flash / 2.0 Flash for real-time document simplification,
- * grounded conversational Q&A, and customized negotiation counter-drafting.
- * Gracefully falls back to the deterministic Heuristic Engine when offline or if no key is configured.
+ * @fileoverview Google Gemini GenAI Integration Service for ClauseGuard
+ * @description Connects to Gemini 2.0 Flash for real-time document simplification,
+ * grounded conversational Q&A, and clause simplification. Gracefully falls back
+ * to the deterministic Heuristic Engine when offline or if no API key is configured.
+ * Primary GenAI model: gemini-2.0-flash (Google's latest fast multimodal model).
+ * @module geminiService
  */
 
 import { analyzeDocumentOffline } from './heuristicEngine';
 
+/** @constant {string} Base Gemini API endpoint */
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+/** @constant {string} Primary Gemini model — latest 2.0 Flash for speed + capability */
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 export function getStoredApiKey() {
   try {
@@ -67,7 +73,7 @@ Please provide a structured, plain-English response:
 
   try {
     const response = await fetch(
-      `${GEMINI_API_URL}/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `${GEMINI_API_URL}/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -93,7 +99,7 @@ Please provide a structured, plain-English response:
     if (candidateText) {
       return {
         answer: candidateText,
-        source: 'Gemini 1.5 Flash (Live AI)',
+        source: 'Gemini 2.0 Flash (Live AI)',
         grounded: true,
       };
     }

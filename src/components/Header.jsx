@@ -91,14 +91,14 @@ export default function Header({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h1 style={{ fontSize: '1.4rem', fontWeight: '800', letterSpacing: '-0.02em', margin: 0 }}>
-                Juris<span className="gradient-text">Ease</span> AI
+                Clause<span className="gradient-text">Guard</span>
               </h1>
               <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>
-                Legal Access & Empowerment
+                Legal Assistance & Access
               </span>
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-              Plain-English Legal Intelligence • Risk Radar • Contract Diffing • Attorney Prep
+              Understand your document. Spot what matters. Prepare for the next step.
             </p>
           </div>
         </div>
