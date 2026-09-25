@@ -1,11 +1,13 @@
 # ⚖️ JurisEase AI — Accessible Legal Intelligence & Document Assistant
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel%20Production-10b981?style=for-the-badge&logo=vercel&logoColor=white)](https://jurisease-legal-assistant.vercel.app)
 [![Test Suite](https://img.shields.io/badge/Vitest-12%20Passed-10b981?style=for-the-badge&logo=vitest&logoColor=white)](https://github.com/AbhishekKantharia/AI_for_Legal_Assistance_and_Access)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPLv3-6366f1?style=for-the-badge)](LICENSE)
 [![Repository Size](https://img.shields.io/badge/Repo%20Size-%3C%201%20MB-3b82f6?style=for-the-badge)](https://github.com/AbhishekKantharia/AI_for_Legal_Assistance_and_Access)
 [![Accessibility](https://img.shields.io/badge/WCAG-AAA%20Compliant-ec4899?style=for-the-badge)](https://github.com/AbhishekKantharia/AI_for_Legal_Assistance_and_Access)
 [![AI Engine](https://img.shields.io/badge/Gemini%201.5%20Flash-Live%20%2B%20Offline%20Engine-f59e0b?style=for-the-badge&logo=google)](https://github.com/AbhishekKantharia/AI_for_Legal_Assistance_and_Access)
 
+> 🌐 **Live Production Application:** [https://jurisease-legal-assistant.vercel.app](https://jurisease-legal-assistant.vercel.app)  
 > **Submission for Hack2skill / Google AI Challenge: AI for Legal Assistance & Access**  
 > *Empowering everyday consumers, tenants, employees, and small business owners with transparent legal intelligence, risk detection, redline comparison, and attorney consultation preparation.*
 

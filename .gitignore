@@ -12,6 +12,7 @@ build/
 out/
 .next/
 .cache/
+.vercel/
 
 # Environment and sensitive data
 .env
@@ -42,3 +43,5 @@ coverage/
 # Temp files
 tmp/
 temp/
+
+.vercel
