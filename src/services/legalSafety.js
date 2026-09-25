@@ -1,137 +1,120 @@
-/**
- * @fileoverview ClauseGuard Legal Safety & Ethical Boundary System
- * Enforces responsible AI boundaries:
- * 1. ClauseGuard is an information and document understanding assistant, NOT a lawyer.
- * 2. It never provides definitive legal advice, guarantees outcomes, or dictates signing.
- * 3. It enforces calibrated review language (e.g. "Requires attention" vs "This is illegal").
- * 4. It redirects legal-advice inquiries to document facts and questions for a qualified professional.
- * @module legalSafety
- */
-
-/**
- * Standard mandatory legal disclaimer required on all views and exported reports.
- */
 export const LEGAL_DISCLAIMER_TEXT =
   'ClauseGuard provides document understanding and general information. It does not provide legal advice, determine whether a document is legally enforceable, or replace a qualified lawyer.';
 
 export const LEGAL_DISCLAIMER_SHORT =
-  'Informational document assistant only. Not formal legal advice.';
+  'Informational document assistance only. Not legal advice.';
 
-/**
- * Calibrated label mapping to ensure neutral, non-conclusory risk assessment.
- * Avoids unsupported legal conclusions like "This contract is illegal".
- */
-export const CALIBRATED_LABELS = {
-  HIGH_ATTENTION: {
-    badge: 'Requires Attention',
-    tone: 'Important clause with significant obligations or potential imbalance to review.',
+export const NO_EVIDENCE_MESSAGE =
+  "I couldn't find enough information in the provided document to answer that reliably.";
+
+export const REVIEW_SIGNALS = {
+  attention: {
+    badge: 'Requires attention',
     severity: 'attention',
+    tone: 'A notable obligation, condition, or allocation of responsibility to review.',
   },
-  MODERATE_ATTENTION: {
-    badge: 'Potential Issue to Review',
-    tone: 'Provision with notable terms, deadlines, or conditions worth verifying.',
+  review: {
+    badge: 'Potential issue to review',
     severity: 'review',
+    tone: 'A provision with terms, deadlines, or scope worth checking.',
   },
-  UNCLEAR_WORDING: {
-    badge: 'Unclear Wording / Ambiguity',
-    tone: 'Vague or open-ended terminology that may benefit from clarification.',
+  ambiguous: {
+    badge: 'Unclear wording',
     severity: 'ambiguous',
+    tone: 'The wording may need clarification or additional context.',
   },
-  STANDARD_TERM: {
-    badge: 'Standard Provision',
-    tone: 'Customary contractual provision adhering to typical commercial conventions.',
+  standard: {
+    badge: 'Important clause',
     severity: 'standard',
+    tone: 'A document provision identified for understanding; this is not a legal conclusion.',
   },
 };
 
-/**
- * Detects whether a user prompt is asking for definitive legal advice or outcomes.
- * @param {string} prompt - User query or input
- * @returns {{ isLegalAdviceRequest: boolean, adviceCategory: string|null, redirectGuidance: string }}
- */
+export const CALIBRATED_LABELS = {
+  HIGH_ATTENTION: REVIEW_SIGNALS.attention,
+  MODERATE_ATTENTION: REVIEW_SIGNALS.review,
+  UNCLEAR_WORDING: REVIEW_SIGNALS.ambiguous,
+  STANDARD_TERM: REVIEW_SIGNALS.standard,
+};
+
 export function checkLegalAdviceRequest(prompt) {
   if (!prompt || typeof prompt !== 'string') {
     return { isLegalAdviceRequest: false, adviceCategory: null, redirectGuidance: '' };
   }
 
   const lower = prompt.toLowerCase();
-
-  // Pattern 1: Should I sign / accept?
-  if (/\b(?:should i sign|can i sign|must i sign|should i refuse|should i accept|is it safe to sign)\b/i.test(lower)) {
+  if (/\b(?:should|must|can|do)\s+i\s+(?:sign|refuse|accept)\b|\bis it safe to sign\b/.test(lower)) {
     return {
       isLegalAdviceRequest: true,
       adviceCategory: 'SIGNING_DECISION',
       redirectGuidance:
-        'ClauseGuard cannot tell you whether to sign or refuse this document. Signing decisions depend on your personal bargaining position and risk tolerance. Here is what the document says about key obligations, and specific questions you can ask an attorney before deciding.',
+        'ClauseGuard cannot tell you whether to sign or refuse this document. Here is what the document says, what remains uncertain, and questions you can discuss with a qualified legal professional.',
     };
   }
 
-  // Pattern 2: Is this legal / enforceable / valid?
-  if (/\b(?:is (?:this|the|that)|are (?:these|the))[^.?\n]*(?:legal|illegal|enforceable|unenforceable|valid|void|binding)\b/i.test(lower)) {
+  if (/\b(?:legal(?:ly)?|enforceable|unenforceable|valid|invalid|void|binding)\b[^.?!]*\?/.test(lower) ||
+      /\b(?:is|are|does|do)\b[^.?!]*\b(?:illegal|valid|enforceable|binding)\b/.test(lower)) {
     return {
       isLegalAdviceRequest: true,
       adviceCategory: 'LEGAL_ENFORCEABILITY',
       redirectGuidance:
-        'ClauseGuard cannot determine legal validity or enforceability. Enforceability depends on jurisdiction-specific statutes, recent case law, and factual context. Consider discussing these flagged clauses with a licensed legal professional.',
+        'ClauseGuard cannot determine legal validity or enforceability. Those questions depend on applicable law, facts, and jurisdiction. Review the cited document terms and discuss them with a qualified legal professional.',
     };
   }
 
-  // Pattern 3: Will I win / sue / liability guarantees?
-  if (/\b(?:will i win|can i sue|will i lose|am i guaranteed|what are my chances in court)\b/i.test(lower)) {
+  if (/\b(?:will|can)\s+i\s+(?:win|lose|sue|be compensated)\b|\bwhat are my chances\b|\bguarantee(?:d)? outcome\b/.test(lower)) {
     return {
       isLegalAdviceRequest: true,
       adviceCategory: 'LITIGATION_OUTCOME',
       redirectGuidance:
-        'ClauseGuard cannot assess litigation outcomes or predict court decisions. If you are facing an active dispute or considering legal action, consult a qualified litigation attorney immediately.',
+        'ClauseGuard cannot predict a legal outcome or guarantee a result. If you face an active dispute or urgent deadline, consult an appropriately qualified professional.',
     };
   }
 
   return { isLegalAdviceRequest: false, adviceCategory: null, redirectGuidance: '' };
 }
 
-/**
- * Calibrates raw risk statements to eliminate biased or reckless language.
- * Ensures the assistant adheres to Section 3 of the Master Specification.
- * @param {string} rawExplanation - Raw analysis or summary text
- * @returns {string} Calibrated text using neutral, professional phraseology
- */
-export function calibrateLanguage(rawExplanation) {
-  if (!rawExplanation || typeof rawExplanation !== 'string') return '';
-
-  return rawExplanation
-    .replace(/\bthis contract is illegal\b/gi, 'this clause contains significant statutory restrictions worth verifying')
-    .replace(/\byou will definitely lose\b/gi, 'this provision places high evidential and financial burden on you')
-    .replace(/\bthis is completely unenforceable\b/gi, 'this provision may face enforceability challenges in several jurisdictions')
-    .replace(/\byou must not sign this\b/gi, 'you may want to pause and discuss this specific clause with legal counsel')
-    .replace(/\byou should sign this\b/gi, 'the terms appear aligned with standard baseline agreements')
+export function calibrateLanguage(value) {
+  if (!value || typeof value !== 'string') return '';
+  return value
+    .replace(/this contract is illegal/gi, 'this provision may warrant review under applicable law')
+    .replace(/you will definitely lose/gi, 'the outcome cannot be predicted from the document alone')
+    .replace(/this is completely unenforceable/gi, 'enforceability may depend on applicable law and facts')
+    .replace(/you must not sign this/gi, 'you may want to pause and discuss this specific clause with legal counsel')
+    .replace(/you should sign this/gi, 'you may want to discuss this specific clause with legal counsel')
+    .replace(/you should not sign this/gi, 'you may want to pause and discuss this specific clause with legal counsel')
     .replace(/\bdraconian\b/gi, 'stringent')
     .replace(/\btrap\b/gi, 'potential area to review');
 }
 
-/**
- * Formats a document-grounded response with explicit anti-hallucination disclaimers and source citations.
- * @param {Object} params
- * @param {string} params.answer - The plain-language answer text
- * @param {Array<{ section: string, page?: number, excerpt: string }>} params.sources - Grounded source citations
- * @param {string} [params.confidence='medium'] - 'high' | 'medium' | 'low'
- * @param {Array<string>} [params.limitations=[]] - Limitations or missing data points
- * @returns {Object} Structured grounded response
- */
-export function formatGroundedOutput({
-  answer,
-  sources = [],
-  confidence = 'medium',
-  limitations = [],
-}) {
+export function containsUnsupportedLegalClaim(value) {
+  if (!value || typeof value !== 'string') return false;
+  return /\b(?:is illegal|is unenforceable|is legally void|is definitely valid|is definitely invalid|guaranteed to win|you will win|you will lose|you must sign|do not sign)\b/i.test(value);
+}
+
+export function safeExcerpt(text, maxLength = 320) {
+  const value = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!value) return '';
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1).trim()}…` : value;
+}
+
+export function formatGroundedOutput({ answer, sources = [], confidence = 'medium', limitations = [] }) {
+  const safeConfidence = ['high', 'medium', 'low'].includes(confidence) ? confidence : 'low';
   return {
     answer: calibrateLanguage(answer),
-    confidence, // 'high' | 'medium' | 'low'
-    sources: sources.map((s) => ({
-      section: s.section || 'General Agreement',
-      page: s.page || 1,
-      excerpt: s.excerpt ? s.excerpt.slice(0, 300) : '',
+    confidence: safeConfidence,
+    sources: (Array.isArray(sources) ? sources : []).map((source) => ({
+      section: String(source?.section || 'Document source'),
+      page: Number.isInteger(source?.page) && source.page > 0 ? source.page : null,
+      excerpt: safeExcerpt(source?.excerpt),
+      passageId: source?.passageId || null,
     })),
-    limitations: limitations || [],
+    limitations: Array.isArray(limitations) ? limitations : [],
     disclaimer: LEGAL_DISCLAIMER_SHORT,
   };
+}
+
+export function sourceLabel(source) {
+  const page = Number.isInteger(source?.page) && source.page > 0 ? `page ${source.page}` : 'page not available';
+  return `${source?.section || 'Document source'} — ${page}`;
 }

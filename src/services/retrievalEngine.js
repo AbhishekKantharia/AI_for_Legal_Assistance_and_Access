@@ -1,213 +1,172 @@
-/**
- * @fileoverview ClauseGuard Retrieval-Grounded Anti-Hallucination Engine (RAG)
- * Chunks documents, indexes passages with exact source citations, computes relevance scores,
- * and produces strictly grounded answers with verifiable section/clause citations.
- * @module retrievalEngine
- */
+import { NO_EVIDENCE_MESSAGE, formatGroundedOutput, safeExcerpt } from './legalSafety';
 
-import { formatGroundedOutput, LEGAL_DISCLAIMER_SHORT } from './legalSafety';
+const STOP_WORDS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'been', 'by', 'can', 'could', 'did', 'do', 'does', 'for', 'from', 'how', 'i', 'if', 'in', 'into', 'is', 'it', 'its', 'me', 'my', 'of', 'on', 'or', 'our', 'should', 'so', 'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they', 'this', 'to', 'up', 'was', 'we', 'what', 'when', 'where', 'which', 'who', 'will', 'with', 'would', 'you', 'your', 'document', 'agreement', 'contract', 'party', 'parties', 'section', 'clause',
+]);
 
-/** Minimum relevance score required to consider a passage grounded */
-const CONFIDENCE_THRESHOLD = 0.25;
+const SEMANTIC_GROUPS = [
+  ['terminate', 'termination', 'cancel', 'cancellation', 'end', 'exit', 'surrender', 'expiration', 'expire'],
+  ['renew', 'renewal', 'extend', 'extension', 'successive', 'term'],
+  ['pay', 'payment', 'rent', 'fee', 'salary', 'compensation', 'invoice', 'charge', 'amount', 'monthly'],
+  ['notice', 'notify', 'notification', 'written', 'days', 'deadline', 'prior'],
+  ['confidential', 'confidentiality', 'nda', 'privacy', 'non-public', 'trade secret'],
+  ['obligated', 'obligation', 'duty', 'shall', 'must', 'responsible', 'require'],
+  ['compare', 'changed', 'different', 'modified', 'version'],
+];
 
-/**
- * Splits document text into structured indexed passages.
- * Each passage retains its section heading, clause ID, estimated page number, and offset.
- * @param {Array<Object>} clauses - Structured clauses from documentParser
- * @returns {Array<Object>} Indexed passages
- */
-export function indexDocumentPassages(clauses) {
-  if (!clauses || !Array.isArray(clauses)) return [];
-
-  const passages = [];
-
-  clauses.forEach((clause, clauseIdx) => {
-    // Break long clauses into paragraph-level sub-passages
-    const paragraphs = clause.originalText
-      .split(/\n+/)
-      .map(p => p.trim())
-      .filter(p => p.length > 20);
-
-    if (paragraphs.length === 0) {
-      passages.push({
-        id: `p-${clause.id}-0`,
-        section: clause.heading,
-        clauseId: clause.id,
-        text: clause.originalText,
-        page: clause.sourceLocation?.estimatedPage || 1,
-        clauseCategory: clause.clauseCategory,
-        plainEnglish: clause.plainEnglish,
-      });
-    } else {
-      paragraphs.forEach((p, pIdx) => {
-        passages.push({
-          id: `p-${clause.id}-${pIdx}`,
-          section: clause.heading,
-          clauseId: clause.id,
-          text: p,
-          page: clause.sourceLocation?.estimatedPage || 1,
-          clauseCategory: clause.clauseCategory,
-          plainEnglish: clause.plainEnglish,
-        });
-      });
-    }
-  });
-
-  return passages;
+function normalizedToken(token) {
+  return token
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/(?:ies)$/i, 'y')
+    .replace(/(?:es)$/i, '')
+    .replace(/(?:ing)$/i, '')
+    .replace(/(?:ed)$/i, '');
 }
 
-/**
- * Tokenizes a query string into clean keywords, removing punctuation and stop words.
- * @param {string} query
- * @returns {Array<string>}
- */
 export function tokenizeQuery(query) {
-  if (!query) return [];
-  const STOP_WORDS = new Set([
-    'a', 'an', 'the', 'is', 'are', 'was', 'were', 'in', 'on', 'at', 'by', 'for',
-    'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before',
-    'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'over',
-    'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where',
-    'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other',
-    'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than',
-    'too', 'very', 'can', 'will', 'just', 'should', 'now', 'what', 'does', 'do',
-    'this', 'that', 'these', 'those', 'i', 'you', 'my', 'your', 'me', 'either',
-    'party', 'parties', 'contract', 'agreement', 'shall', 'said', 'hereunder', 'lease'
-  ]);
-
-  return query
+  return String(query || '')
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter(token => token.length > 1 && !STOP_WORDS.has(token));
+    .map(normalizedToken)
+    .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
 }
 
-/**
- * Calculates a relevance score between a query and a candidate passage.
- * Combines exact keyword overlap, heading relevance, and legal synonym matching.
- * @param {Array<string>} queryTokens
- * @param {Object} passage
- * @returns {number} Score between 0.0 and 1.0+
- */
+function semanticTokens(tokens) {
+  const expanded = new Set(tokens);
+  for (const group of SEMANTIC_GROUPS) {
+    if (tokens.some((token) => group.includes(token))) {
+      group.forEach((token) => expanded.add(normalizedToken(token)));
+    }
+  }
+  return [...expanded];
+}
+
+export function indexDocumentPassages(clauses) {
+  if (!Array.isArray(clauses)) return [];
+  const passages = [];
+  for (const clause of clauses) {
+    const sourceText = String(clause.originalText || clause.text || '').trim();
+    const pieces = sourceText
+      .split(/(?<=[.!?])\s+(?=[A-Z0-9"“])/)
+      .map((piece) => piece.trim())
+      .filter(Boolean);
+    const values = pieces.length ? pieces : [sourceText];
+    values.forEach((value, index) => {
+      if (value.length < 8) return;
+      passages.push({
+        passageId: `${clause.id}-p${index + 1}`,
+        clauseId: clause.id,
+        section: clause.heading,
+        clauseCategory: clause.clauseCategory,
+        text: value,
+        page: clause.sourceLocation?.page ?? null,
+        startOffset: clause.sourceLocation?.startOffset ?? null,
+        plainEnglish: clause.plainEnglish || '',
+        importance: clause.importance || 'Important clause',
+      });
+    });
+  }
+  return passages;
+}
+
 export function scorePassage(queryTokens, passage) {
-  if (queryTokens.length === 0) return 0;
-
-  const passageTextLower = passage.text.toLowerCase();
-  const sectionLower = passage.section.toLowerCase();
-
-  let matches = 0;
-  let headerMatches = 0;
-
-  for (const token of queryTokens) {
-    if (passageTextLower.includes(token)) {
-      matches++;
-      // Count frequency
-      const freq = (passageTextLower.match(new RegExp('\\b' + token + '\\b', 'g')) || []).length;
-      if (freq > 1) matches += 0.3 * Math.min(3, freq);
-    }
-    if (sectionLower.includes(token)) {
-      headerMatches += 1.5;
-    }
+  if (!Array.isArray(queryTokens) || !queryTokens.length || !passage?.text) return 0;
+  const expanded = semanticTokens(queryTokens);
+  const text = `${passage.section || ''} ${passage.text}`.toLowerCase();
+  const words = new Set(text.match(/[a-z0-9]+/g) || []);
+  let overlap = 0;
+  for (const token of expanded) {
+    if (words.has(token)) overlap += 1;
+    else if (token.length > 3 && [...words].some((word) => word.startsWith(token) || token.startsWith(word))) overlap += 0.55;
   }
-
-  // Synonym / Semantic boosts
-  const synonymMap = {
-    rent: ['payment', 'monthly', 'due', 'amount'],
-    terminate: ['cancel', 'break', 'end', 'leave', 'surrender', 'expiration'],
-    pay: ['rent', 'fee', 'salary', 'compensation', 'invoice', 'charges', 'amount', 'dollar'],
-    renew: ['renewal', 'extension', 'successive', 'term'],
-    compete: ['competition', 'competitor', 'restrictive', 'covenant', 'solicit'],
-    deposit: ['escrow', 'deduction', 'refund', 'turnover', 'security'],
-    privacy: ['entry', 'inspection', 'access', 'landlord', 'unannounced'],
-    deadline: ['notice', 'days', 'calendar', 'grace', 'window', 'cure'],
-    ip: ['intellectual property', 'invention', 'copyright', 'patent', 'work-for-hire', 'code'],
-  };
-
-  let synonymBoost = 0;
-  for (const token of queryTokens) {
-    for (const [key, syns] of Object.entries(synonymMap)) {
-      if (token === key || syns.includes(token)) {
-        if (passageTextLower.includes(key) || syns.some(s => passageTextLower.includes(s))) {
-          synonymBoost += 0.3;
-        }
-      }
-    }
-  }
-
-  const tokenCoverage = matches / queryTokens.length;
-  const headerBonus = (headerMatches / queryTokens.length) * 1.2;
-
-  return tokenCoverage + headerBonus + synonymBoost;
+  const coverage = overlap / Math.max(1, expanded.length);
+  const phrase = String(queryTokens.join(' '));
+  const phraseBoost = phrase && text.includes(phrase) ? 0.6 : 0;
+  const headingBoost = queryTokens.some((token) => String(passage.section || '').toLowerCase().includes(token)) ? 0.22 : 0;
+  return Math.min(1.5, coverage + phraseBoost + headingBoost);
 }
 
-/**
- * Retrieves the top-K relevant passages for a query.
- * @param {string} query - User search question
- * @param {Array<Object>} passages - Indexed document passages
- * @param {number} [topK=3] - Number of passages to return
- * @returns {Array<Object>} Ranked passages with scores
- */
-export function retrieveRelevantPassages(query, passages, topK = 3) {
+export function retrieveRelevantPassages(query, passages, topK = 4) {
   const queryTokens = tokenizeQuery(query);
-  if (queryTokens.length === 0 || !passages || passages.length === 0) {
-    return [];
-  }
-
-  const scored = passages.map(p => ({
-    ...p,
-    score: scorePassage(queryTokens, p),
-  }));
-
-  scored.sort((a, b) => b.score - a.score);
-
-  return scored.filter(p => p.score >= CONFIDENCE_THRESHOLD).slice(0, topK);
+  if (!queryTokens.length || !Array.isArray(passages) || !passages.length) return [];
+  const ranked = passages
+    .map((passage) => ({ ...passage, score: scorePassage(queryTokens, passage) }))
+    .sort((a, b) => b.score - a.score);
+  const best = ranked[0]?.score || 0;
+  if (best < 0.24) return [];
+  return ranked.filter((passage) => passage.score >= Math.max(0.24, best * 0.45)).slice(0, topK);
 }
 
-/**
- * Synthesizes a document-grounded answer based on retrieved passages.
- * Strictly adheres to anti-hallucination standards:
- * If evidence is insufficient, explicitly states so rather than inventing terms.
- * @param {string} query - User query
- * @param {Array<Object>} passages - Indexed passages from the active document
- * @returns {Object} Grounded response object with citations and confidence
- */
-export function answerDocumentQuestionGrounding(query, passages) {
-  const relevant = retrieveRelevantPassages(query, passages, 3);
+function queryHas(query, expressions) {
+  const lower = String(query || '').toLowerCase();
+  return expressions.some((expression) => lower.includes(expression));
+}
 
-  // Anti-Hallucination Guard: If no passage meets the confidence threshold
-  if (relevant.length === 0) {
+function selectSentences(query, passages) {
+  const patterns = {
+    termination: /terminat|cancel|surrender|expire|exit|end the agreement/i,
+    renewal: /renew|successive|extend|expiration/i,
+    payment: /pay|rent|fee|salary|compensation|invoice|charge|amount|due/i,
+    notice: /notice|notify|days|deadline|prior/i,
+    confidentiality: /confidential|privacy|non-public|trade secret/i,
+    obligations: /shall|must|obligat|duty|responsib|agree/i,
+  };
+  const kind = Object.keys(patterns).find((key) => queryHas(query, key === 'termination' ? ['terminate', 'termination', 'cancel', 'end'] : key === 'renewal' ? ['renew', 'renewal'] : key === 'payment' ? ['pay', 'rent', 'fee', 'salary', 'invoice', 'charge', 'cost'] : key === 'notice' ? ['notice', 'notify', 'deadline'] : key === 'confidentiality' ? ['confidential', 'privacy', 'nda'] : ['obligat', 'shall', 'must', 'duty', 'responsible'])) || null;
+  const selected = [];
+  for (const passage of passages) {
+    if (kind && patterns[kind].test(passage.text)) selected.push(passage.text);
+  }
+  return [...new Set(selected.length ? selected : passages.map((passage) => passage.text))].slice(0, 2);
+}
+
+function answerForQuestion(query, relevant) {
+  const excerpts = selectSentences(query, relevant);
+  if (!excerpts.length) return NO_EVIDENCE_MESSAGE;
+  const lower = query.toLowerCase();
+  const first = excerpts[0];
+  if (queryHas(lower, ['terminate', 'termination', 'cancel', 'end'])) {
+    return `The document says: “${safeExcerpt(first, 420)}”\n\nThis identifies the stated ending conditions or notice terms. The document does not, by itself, answer whether a particular situation qualifies.`;
+  }
+  if (queryHas(lower, ['renew', 'renewal', 'extend'])) {
+    return `The document says: “${safeExcerpt(first, 420)}”\n\nCheck the stated notice deadline and delivery method before relying on a renewal outcome.`;
+  }
+  if (queryHas(lower, ['pay', 'rent', 'fee', 'salary', 'invoice', 'charge', 'cost'])) {
+    return `The document states the following payment term: “${safeExcerpt(first, 420)}”\n\nThe excerpt is reproduced as a document fact; confirm the surrounding definitions and schedules before treating it as the complete payment obligation.`;
+  }
+  if (queryHas(lower, ['notice', 'notify', 'deadline', 'when'])) {
+    return `The relevant document language is: “${safeExcerpt(first, 420)}”\n\nThe stated period and delivery method are important to verify.`;
+  }
+  return `The document states: “${excerpts.map((excerpt) => safeExcerpt(excerpt, 300)).join('” “')}”\n\nThis is a document-grounded reading. Review the surrounding section for definitions, exceptions, and conditions.`;
+}
+
+export function answerDocumentQuestionGrounding(query, passages, options = {}) {
+  const relevant = retrieveRelevantPassages(query, passages, options.topK || 4);
+  if (!relevant.length) {
     return formatGroundedOutput({
-      answer: "I couldn't find enough information in the provided document to answer that reliably.",
+      answer: NO_EVIDENCE_MESSAGE,
       confidence: 'low',
       sources: [],
-      limitations: [
-        'The query terms did not match any substantive provisions in the document.',
-        'This agreement may not address this topic, or it may use different defined terminology.',
-      ],
+      limitations: ['The query did not match a passage with enough evidence in this document.'],
     });
   }
 
-  const bestPassage = relevant[0];
-  const sources = relevant.map(r => ({
-    section: r.section,
-    page: r.page,
-    excerpt: r.text.length > 280 ? r.text.slice(0, 280) + '...' : r.text,
+  const bestScore = relevant[0].score || 0;
+  const confidence = bestScore >= 0.9 ? 'high' : bestScore >= 0.5 ? 'medium' : 'low';
+  const sources = relevant.map((passage) => ({
+    section: passage.section,
+    page: passage.page,
+    excerpt: passage.text,
+    passageId: passage.passageId,
   }));
-
-  const confidence = bestPassage.score >= 1.2 ? 'high' : bestPassage.score >= 0.6 ? 'medium' : 'low';
-
-  // Construct grounded plain-English answer
-  let answer = '';
-  if (bestPassage.plainEnglish && bestPassage.score >= 0.8) {
-    answer = `Based on ${bestPassage.section}: ${bestPassage.plainEnglish} \n\nRelevant document provision: "${bestPassage.text}"`;
-  } else {
-    answer = `According to ${bestPassage.section} (page ${bestPassage.page}): "${bestPassage.text}"`;
-  }
-
+  const limitations = confidence === 'low'
+    ? ['The retrieved wording is limited; verify the full section and related definitions.']
+    : [];
   return formatGroundedOutput({
-    answer,
+    answer: answerForQuestion(query, relevant),
     confidence,
     sources,
-    limitations: confidence === 'low' ? ['Evidence in the document is limited; verify full section with counsel.'] : [],
+    limitations,
   });
 }
