@@ -10,6 +10,9 @@ import {
   getStoredApiKey,
   askDocumentQuestion,
 } from '../src/services/geminiService';
+import { validateGroundedModelResult } from '../src/services/aiService';
+import { askDocument } from '../src/services/documentAssistant';
+import { processDocument } from '../src/services/documentParser';
 
 // Real extracted text from the Federal Register (non-compete rule, FTC 2024)
 const REAL_NON_COMPETE_TEXT = `
@@ -89,5 +92,42 @@ describe('GeminiService — Offline Grounded Engine (Zero Mocks)', () => {
     expect(result.grounded).toBe(true);
     expect(typeof result.answer).toBe('string');
     expect(result.answer.length).toBeGreaterThan(30);
+  });
+
+  it('rejects a model result that cites a passage not supplied to it', () => {
+    const result = validateGroundedModelResult({
+      answer: 'The document describes a termination fee.',
+      confidence: 'high',
+      sources: [{ passageId: 'missing-passage', excerpt: 'A fee is due.' }],
+    }, [{ passageId: 'passage-1', text: 'Early termination requires a payment.' }]);
+
+    expect(result).toBeNull();
+  });
+
+  it('accepts a model result when its source passage and excerpt match', () => {
+    const result = validateGroundedModelResult({
+      answer: 'The document describes an early termination payment.',
+      confidence: 'medium',
+      sources: [{ passageId: 'passage-1', excerpt: 'Early termination requires a payment.' }],
+      limitations: ['This is limited to the supplied passage.'],
+    }, [{ passageId: 'passage-1', section: 'Termination', page: 2, text: 'Early termination requires a payment.' }]);
+
+    expect(result).toBeDefined();
+    expect(result.sources[0].passageId).toBe('passage-1');
+    expect(result.sources[0].page).toBe(2);
+  });
+
+  it('orchestrates the document assistant with the local grounded engine', async () => {
+    const documentModel = processDocument(REAL_NON_COMPETE_TEXT, { source: 'test' });
+    const result = await askDocument({
+      question: 'What are the non-compete restrictions?',
+      documentModel,
+      context: { role: 'Employee' },
+    });
+
+    expect(result.grounded).toBe(true);
+    expect(result.usedLiveModel).toBe(false);
+    expect(result.retrievedPassageCount).toBeGreaterThan(0);
+    expect(result.answer).toContain('Employee covenants');
   });
 });

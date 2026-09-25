@@ -52,6 +52,8 @@ export async function askDocument({ question, documentModel, context = {}, passa
   return {
     ...routed,
     intent: routed.intent || classification.intent,
+    grounded: true,
+    source: usedLiveModel ? 'ClauseGuard validated live model' : routed.source || 'ClauseGuard Grounded Engine',
     usedLiveModel,
     retrievedPassageCount: passages.length,
     context: {

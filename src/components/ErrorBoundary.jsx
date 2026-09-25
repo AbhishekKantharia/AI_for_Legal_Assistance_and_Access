@@ -1,10 +1,6 @@
 import React from 'react';
 import { AlertOctagon, RotateCcw } from 'lucide-react';
 
-/**
- * Enterprise React Error Boundary
- * Catches runtime errors in the component tree and renders an accessible fallback UI.
- */
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -16,7 +12,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('JurisEase Caught Unhandled UI Exception:', error, errorInfo);
+    console.error('ClauseGuard caught an unhandled UI exception:', error, errorInfo);
     this.setState({ errorInfo });
   }
 
@@ -28,73 +24,13 @@ export default class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          role="alert"
-          aria-live="assertive"
-          style={{
-            minHeight: '60vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '24px',
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              maxWidth: '560px',
-              width: '100%',
-              textAlign: 'center',
-              borderLeft: '4px solid var(--status-critical)',
-              padding: '32px 24px',
-            }}
-          >
-            <div
-              style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '50%',
-                background: 'var(--status-critical-bg)',
-                color: 'var(--status-critical)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: '16px',
-              }}
-            >
-              <AlertOctagon size={32} />
-            </div>
-
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>
-              Something went wrong in the interface
-            </h2>
-
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.5, marginBottom: '20px' }}>
-              JurisEase encountered an unexpected UI exception. Your confidential text has not been lost.
-            </p>
-
-            {this.state.error?.message && (
-              <pre
-                style={{
-                  background: 'var(--bg-secondary)',
-                  padding: '12px',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '0.75rem',
-                  fontFamily: 'var(--font-mono)',
-                  textAlign: 'left',
-                  overflowX: 'auto',
-                  marginBottom: '20px',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {this.state.error.message}
-              </pre>
-            )}
-
-            <button onClick={this.handleReset} className="btn btn-primary" style={{ margin: '0 auto' }}>
-              <RotateCcw size={16} />
-              <span>Reload Application</span>
-            </button>
+        <div className="error-boundary" role="alert" aria-live="assertive">
+          <div className="card error-boundary-card">
+            <div className="error-boundary-icon"><AlertOctagon size={32} /></div>
+            <h2>Something went wrong in the interface</h2>
+            <p>ClauseGuard encountered an unexpected UI exception. Your document was not sent to a server by this recovery screen.</p>
+            {this.state.error?.message && <pre className="error-boundary-message">{this.state.error.message}</pre>}
+            <button className="primary-button" onClick={this.handleReset} type="button"><RotateCcw size={16} /> Reload application</button>
           </div>
         </div>
       );

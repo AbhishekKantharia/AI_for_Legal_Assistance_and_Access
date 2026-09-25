@@ -16,7 +16,7 @@ export function generateLawyerDossierMarkdown(analysis, customNotes = '') {
   md += `**Document Analyzed:** ${analysis.title || 'Legal Agreement'}\n`;
   md += `**Date of AI Review:** ${date}\n`;
   md += `**Overall Exposure Score:** ${analysis.overallRiskScore} / 100 (${analysis.riskCategory})\n`;
-  md += `**Notice:** Prepared with JurisEase AI for informational briefing only. Not formal legal advice.\n\n`;
+  md += `**Notice:** Prepared with ClauseGuard for informational briefing only. Not formal legal advice.\n\n`;
 
   md += `---\n\n`;
 
@@ -61,7 +61,7 @@ export function generateLawyerDossierMarkdown(analysis, customNotes = '') {
   }
 
   md += `---\n`;
-  md += `*Generated via JurisEase AI - Empowering Legal Access & Document Transparency.*\n`;
+  md += `*Generated via ClauseGuard - Empowering Legal Access & Document Transparency.*\n`;
 
   return md;
 }

@@ -4,6 +4,14 @@ import { CALIBRATED_LABELS, calibrateLanguage, safeExcerpt } from './legalSafety
 
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 export const SUPPORTED_FILE_EXTENSIONS = ['.txt', '.md', '.text', '.docx', '.pdf'];
+const SUPPORTED_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'text/markdown',
+  'text/x-markdown',
+  'application/octet-stream',
+]);
 export const MAX_EXTRACTED_CHARACTERS = 4_000_000;
 
 const PAGE_MARKER_PATTERN = /(?:^|\n)\s*(?:---\s*Page\s+(\d+)\s*---|\[Page\s+(\d+)\])\s*(?=\n|$)/gi;
@@ -177,6 +185,15 @@ export function validateDocumentFile(file) {
     return {
       valid: false,
       error: `Unsupported file type (${extension || 'unknown'}). Upload a PDF, DOCX, TXT, or Markdown document.`,
+      sanitizedName,
+    };
+  }
+
+  const mimeType = String(file.type || '').toLowerCase();
+  if (mimeType && !SUPPORTED_MIME_TYPES.has(mimeType) && !mimeType.startsWith('text/')) {
+    return {
+      valid: false,
+      error: 'The file MIME type does not match a supported document format.',
       sanitizedName,
     };
   }

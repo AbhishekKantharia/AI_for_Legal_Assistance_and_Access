@@ -24,7 +24,7 @@ export default function LawyerPrepDossier({ analysis }) {
   const dossierMarkdown = generateLawyerDossierMarkdown(analysis, customNotes);
 
   const handleDownload = () => {
-    downloadTextFile('JurisEase_Legal_Consultation_Dossier.md', dossierMarkdown);
+    downloadTextFile('ClauseGuard_Legal_Consultation_Dossier.md', dossierMarkdown);
   };
 
   const handleCopy = () => {
@@ -95,7 +95,7 @@ export default function LawyerPrepDossier({ analysis }) {
                 {analysis.title || 'Legal Agreement Review'}
               </h2>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-                Generated via JurisEase AI • Informational & Negotiation Preparation
+                Generated via ClauseGuard • Informational & Negotiation Preparation
               </p>
             </div>
 

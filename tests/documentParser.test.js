@@ -20,6 +20,11 @@ describe('ClauseGuard Document Parser', () => {
     const invalidResult = validateDocumentFile(invalidExe);
     expect(invalidResult.valid).toBe(false);
     expect(invalidResult.error).toContain('Unsupported file type');
+
+    const mismatchedType = new File(['Contract content'], 'agreement.txt', { type: 'application/x-msdownload' });
+    const mismatchedResult = validateDocumentFile(mismatchedType);
+    expect(mismatchedResult.valid).toBe(false);
+    expect(mismatchedResult.error).toContain('MIME type');
   });
 
   it('rejects files larger than 10MB', () => {

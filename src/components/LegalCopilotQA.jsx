@@ -26,9 +26,9 @@ export default function LegalCopilotQA({ documentText }) {
     {
       role: 'assistant',
       content:
-        `Hello! I am your **JurisEase Legal Copilot**. I have analyzed your document and can answer specific questions grounded strictly in its clauses.\n\n` +
+        `Hello! I am your **ClauseGuard Legal Copilot**. I have analyzed your document and can answer specific questions grounded strictly in its clauses.\n\n` +
         `Feel free to click one of the suggested questions below or type your own question regarding liabilities, termination, IP rights, or fees.`,
-      source: 'JurisEase Copilot',
+      source: 'ClauseGuard Copilot',
     },
   ]);
   const [inputQuery, setInputQuery] = useState('');

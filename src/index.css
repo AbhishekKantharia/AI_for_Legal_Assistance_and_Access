@@ -170,6 +170,10 @@ p { color: var(--ink-soft); }
 .notice-banner strong { color: var(--ink); font-size: .86rem; }
 .notice-banner p { margin: 3px 0 0; font-size: .8rem; line-height: 1.55; }
 .live-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.error-boundary { display: grid; min-height: 100vh; place-items: center; padding: 24px; background: var(--paper); }
+.error-boundary-card { width: min(560px, 100%); padding: 32px 24px; text-align: center; }
+.error-boundary-icon { display: inline-grid; width: 56px; height: 56px; margin-bottom: 16px; place-items: center; border-radius: 50%; color: var(--red); background: var(--red-soft); }
+.error-boundary-message { max-width: 100%; margin: 0 0 20px; padding: 12px; overflow-x: auto; border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--ink-muted); font-family: var(--font-mono); font-size: .75rem; text-align: left; white-space: pre-wrap; }
 .error-banner { display: flex; align-items: center; gap: 10px; margin: -35px 0 30px; padding: 12px 15px; border: 1px solid color-mix(in srgb, var(--red) 35%, var(--line)); border-radius: var(--radius-md); background: var(--red-soft); color: var(--red); font-size: .82rem; }
 .error-banner span { flex: 1; }
 .error-banner button { display: grid; place-items: center; border: 0; background: transparent; color: inherit; }

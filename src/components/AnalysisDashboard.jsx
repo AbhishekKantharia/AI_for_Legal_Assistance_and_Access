@@ -197,7 +197,7 @@ export default function AnalysisDashboard({ analysis }) {
             <ArrowRight size={18} color="var(--brand-primary)" />
 
             <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>JurisEase Plain English</div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ClauseGuard Plain English</div>
               <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--status-fair)' }}>
                 Grade {overallReadabilityPlain.fleschKincaidGrade}
               </div>

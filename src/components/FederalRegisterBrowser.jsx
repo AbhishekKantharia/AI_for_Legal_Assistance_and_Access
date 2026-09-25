@@ -120,7 +120,7 @@ Violations are subject to administrative enforcement, civil penalties, and statu
             </span>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
-            Search and import real federal agency rules (FTC, CFPB, HUD, DOL) directly into JurisEase for plain-English simplification.
+            Search and import real federal agency rules (FTC, CFPB, HUD, DOL) directly into ClauseGuard for plain-English simplification.
           </p>
         </div>
 

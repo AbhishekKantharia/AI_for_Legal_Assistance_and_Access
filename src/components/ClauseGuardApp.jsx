@@ -256,11 +256,11 @@ function OverviewPanel({ model, onExplain, onAsk }) {
   );
 }
 
-function PlainLanguagePanel({ model, onAsk }) {
-  const [expandedClause, setExpandedClause] = useState(model.clauses?.[0]?.id || '');
+function PlainLanguagePanel({ model, onAsk, selectedClauseId }) {
+  const [expandedClause, setExpandedClause] = useState(selectedClauseId || model.clauses?.[0]?.id || '');
   useEffect(() => {
-    if (!model.clauses?.some((clause) => clause.id === expandedClause)) setExpandedClause(model.clauses?.[0]?.id || '');
-  }, [model, expandedClause]);
+    setExpandedClause(selectedClauseId || model.clauses?.[0]?.id || '');
+  }, [model, selectedClauseId]);
   return (
     <div className="panel-stack">
       <SectionHeading
@@ -303,7 +303,7 @@ function PlainLanguagePanel({ model, onAsk }) {
   );
 }
 
-function AskPanel({ model, context, question, setQuestion, answer, onAsk, isAsking, onSuggested }) {
+function AskPanel({ context, question, setQuestion, answer, onAsk, isAsking, onSuggested }) {
   return (
     <div className="panel-stack">
       <SectionHeading
@@ -374,7 +374,7 @@ function LawyerPrepPanel({ model, concerns, setConcerns, prep, onGenerate, isPre
         title="Turn the document into a focused conversation"
         description="Collect source-linked questions, dates, and a short checklist before speaking with a qualified legal professional. This is preparation material, not legal advice."
       />
-      <section className="card prep-builder"><div><span className="eyebrow">Your focus</span><h3>What do you want to discuss?</h3><p className="muted-copy">Optional context helps organize the briefing. Do not include information you do not want copied into the page.</p></div><textarea value={concerns} onChange={(event) => setConcerns(event.target.value)} rows={4} placeholder="For example: I want to understand the renewal and notice language." /><button className="primary-button" type="button" onClick={onGenerate} disabled={isPreparing}><ClipboardCheck size={16} /> {isPreparing ? 'Preparing package…' : 'Generate preparation package'}</button></section>
+      <section className="card prep-builder"><div><span className="eyebrow">Your focus</span><h3>What do you want to discuss?</h3><p className="muted-copy">Optional context helps organize the briefing. Do not include information you do not want copied into the page.</p></div><textarea aria-label="Consultation focus" value={concerns} onChange={(event) => setConcerns(event.target.value)} rows={4} placeholder="For example: I want to understand the renewal and notice language." /><button className="primary-button" type="button" onClick={onGenerate} disabled={isPreparing}><ClipboardCheck size={16} /> {isPreparing ? 'Preparing package…' : 'Generate preparation package'}</button></section>
       {prep ? (
         <>
           <div className="prep-actions"><span className="small-muted">Package includes {prep.questions.length} questions and {prep.checklist.length} checklist items.</span><div><button className="secondary-button" type="button" onClick={onCopy}>{copied ? <Check size={16} /> : <Copy size={16} />} {copied ? 'Copied' : 'Copy Markdown'}</button><button className="secondary-button" type="button" onClick={onDownload}><Download size={16} /> Download .md</button></div></div>
@@ -389,6 +389,7 @@ function LawyerPrepPanel({ model, concerns, setConcerns, prep, onGenerate, isPre
 export default function ClauseGuardApp() {
   const [activeDocument, setActiveDocument] = useState(makeInitialDocument);
   const [documentModel, setDocumentModel] = useState(() => processDocument(INITIAL_DOCUMENT.text, makeInitialDocument().metadata));
+  const [selectedClauseId, setSelectedClauseId] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [intakeMode, setIntakeMode] = useState('samples');
   const [draftText, setDraftText] = useState('');
@@ -435,6 +436,7 @@ export default function ClauseGuardApp() {
       const nextModel = processDocument(sanitized.sanitizedText, { ...metadata, userRole: context.role || undefined, piiRedacted: piiEnabled });
       setActiveDocument({ title: metadata.title || metadata.filename || 'Untitled document', filename: metadata.filename || 'document.txt', text: sanitized.sanitizedText, source, metadata: { ...metadata, piiRedacted: piiEnabled } });
       setDocumentModel(nextModel);
+      setSelectedClauseId(nextModel.clauses?.[0]?.id || '');
       setAnswer(null);
       setComparison(null);
       setPrep(null);
@@ -516,11 +518,17 @@ export default function ClauseGuardApp() {
 
   function handlePrepare() {
     setIsPreparing(true);
+    setError('');
     window.setTimeout(() => {
-      setPrep(buildLawyerPrepPackage(documentModel, concerns));
-      setCheckedItems(new Set());
-      setNotice('Preparation package generated from the current document model.');
-      setIsPreparing(false);
+      try {
+        setPrep(buildLawyerPrepPackage(documentModel, concerns));
+        setCheckedItems(new Set());
+        setNotice('Preparation package generated from the current document model.');
+      } catch (preparationError) {
+        setError(preparationError?.message || 'The preparation package could not be generated.');
+      } finally {
+        setIsPreparing(false);
+      }
     }, 160);
   }
 
@@ -539,6 +547,7 @@ export default function ClauseGuardApp() {
     const initial = makeInitialDocument();
     setActiveDocument(initial);
     setDocumentModel(processDocument(initial.text, initial.metadata));
+    setSelectedClauseId('');
     setActiveTab('overview');
     setIntakeMode('samples');
     setDraftText('');
@@ -573,7 +582,7 @@ export default function ClauseGuardApp() {
           {error && <div className="error-banner" role="alert"><AlertTriangle size={18} /><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={() => setError('')}><X size={16} /></button></div>}
           <section id="intake" className="intake-section"><SectionHeading eyebrow="Start here" title="Bring one document into focus" description="Use a fictional sample, upload a supported file, or paste text. Processing stays in this browser session unless you configure an optional model endpoint." /><div className="intake-grid"><section className="card intake-card"><div className="intake-card-heading"><div><span className="step-number">01</span><div><h3>Choose a source</h3><p>Start with a safe example or your own text.</p></div></div><span className="file-limit">10 MB max</span></div><div className="source-tabs" role="tablist" aria-label="Document source"><button type="button" role="tab" aria-selected={intakeMode === 'samples'} className={intakeMode === 'samples' ? 'active' : ''} onClick={() => setIntakeMode('samples')}><FileCheck2 size={16} /> Samples</button><button type="button" role="tab" aria-selected={intakeMode === 'upload'} className={intakeMode === 'upload' ? 'active' : ''} onClick={() => setIntakeMode('upload')}><Upload size={16} /> Upload</button><button type="button" role="tab" aria-selected={intakeMode === 'paste'} className={intakeMode === 'paste' ? 'active' : ''} onClick={() => setIntakeMode('paste')}><FileText size={16} /> Paste text</button></div>{intakeMode === 'samples' && <div className="sample-grid">{DEMO_DOCUMENTS.map((sample) => <button type="button" className={`sample-card ${activeDocument.filename === sample.filename ? 'selected' : ''}`} key={sample.id} onClick={() => selectSample(sample)}><span className="sample-icon"><FileText size={18} /></span><span className="sample-card-copy"><strong>{sample.title}</strong><small>{sample.category}</small><span>{sample.description}</span></span><ArrowRight size={16} className="sample-arrow" /></button>)}</div>}{intakeMode === 'upload' && <div className="drop-zone" onDragOver={(event) => event.preventDefault()} onDrop={handleDrop}><input ref={fileInputRef} id="file-upload" type="file" accept=".pdf,.docx,.txt,.md,.text" onChange={handleFileChange} /><label htmlFor="file-upload"><span className="upload-icon"><Upload size={24} /></span><strong>Choose a document or drop it here</strong><span>PDF, DOCX, TXT, or Markdown · 10 MB maximum</span><small>Text-based PDFs are supported. Scanned images may not extract reliably.</small></label></div>}{intakeMode === 'paste' && <div className="paste-fields"><label className="field-label" htmlFor="pasted-title">Document label <span>Optional</span></label><input id="pasted-title" value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="e.g. My agreement" /><label className="field-label" htmlFor="pasted-text">Document text</label><textarea id="pasted-text" value={draftText} onChange={(event) => setDraftText(event.target.value)} rows={9} placeholder="Paste the agreement text here…" /><button className="primary-button" type="button" disabled={!draftText.trim()} onClick={() => analyzeText(draftText, { title: draftTitle || 'Pasted agreement', filename: 'pasted-agreement.txt', documentType: 'TXT' }, 'paste')}>Analyze pasted text <ArrowRight size={16} /></button></div>}<div className="intake-footer"><label className="toggle-label"><input type="checkbox" checked={piiEnabled} onChange={(event) => setPiiEnabled(event.target.checked)} /><span className="toggle-track" /><span>Redact common personal identifiers before processing</span></label><span className="small-muted">No document is written to permanent storage.</span></div></section><aside id="privacy" className="card privacy-card"><div className="privacy-icon"><Lock size={20} /></div><span className="eyebrow">Privacy by design</span><h3>Your document stays yours.</h3><p>ClauseGuard keeps the working document in memory for this session. Optional redaction runs locally before analysis.</p><ul className="privacy-list"><li><CheckCircle2 size={16} /> No account required</li><li><CheckCircle2 size={16} /> No document database</li><li><CheckCircle2 size={16} /> No invented page numbers</li><li><CheckCircle2 size={16} /> Clear the session anytime</li></ul><button className="quiet-link" type="button" onClick={resetSession}><RefreshCw size={15} /> Clear session</button></aside></div></section>
           <section id="method" className="method-section"><SectionHeading eyebrow="How it works" title="A careful path from text to understanding" /><div className="method-grid"><div className="method-step"><span>01</span><FileSearch size={21} /><h3>Parse</h3><p>Extract headings, dates, amounts, parties, and obligations from readable text.</p></div><div className="method-step"><span>02</span><Search size={21} /><h3>Retrieve</h3><p>Find only the passages that match the question instead of treating the whole file as context.</p></div><div className="method-step"><span>03</span><Bot size={21} /><h3>Ground</h3><p>Return a short answer with source excerpts, confidence, and limitations.</p></div><div className="method-step"><span>04</span><Briefcase size={21} /><h3>Prepare</h3><p>Turn open questions and source-linked details into a consultation checklist.</p></div></div></section>
-          <section id="workspace" className="workspace-section"><div className="workspace-header"><div><span className="eyebrow">Active workspace</span><h2>{activeDocument.title}</h2><p>{activeDocument.filename} · {documentModel.metadata?.wordCount?.toLocaleString()} words · {pageSummary} · {activeDocument.source === 'sample' ? 'Fictional sample' : 'Session document'}</p></div><div className="workspace-header-actions"><span className={`mode-pill ${aiStatus.configured ? 'live' : ''}`}>{aiStatus.configured ? <><Sparkles size={13} /> Live model + local fallback</> : <><Lock size={13} /> Local grounded engine</>}</span><button className="icon-button" type="button" onClick={resetSession} aria-label="Clear current session" title="Clear session"><RefreshCw size={17} /></button></div></div><div className="workspace-tabs" role="tablist" aria-label="ClauseGuard workspace views">{TABS.map((tab) => { const Icon = tab.icon; return <button type="button" role="tab" aria-selected={activeTab === tab.id} className={activeTab === tab.id ? 'active' : ''} key={tab.id} onClick={() => setActiveTab(tab.id)}><Icon size={16} />{tab.label}{tab.id === 'overview' && <span>{documentModel.reviewAreaCount}</span>}</button>; })}</div><div role="tabpanel" aria-label={`${currentTab.label} view`} className="workspace-panel">{activeTab === 'overview' && <OverviewPanel model={documentModel} onExplain={(clause) => { setActiveTab('plain'); setNotice(`Opened ${clause.heading} in the plain-language view.`); }} onAsk={(value) => { setActiveTab('ask'); handleAsk(value); }} />}{activeTab === 'plain' && <PlainLanguagePanel model={documentModel} onAsk={(value) => { setActiveTab('ask'); handleAsk(value); }} />}{activeTab === 'ask' && <AskPanel model={documentModel} context={context} question={question} setQuestion={setQuestion} answer={answer} onAsk={handleAsk} isAsking={isAsking} onSuggested={(value) => handleAsk(value)} />}{activeTab === 'compare' && <ComparisonPanel activeDocument={activeDocument} model={documentModel} compareId={compareId} setCompareId={setCompareId} comparison={comparison} onCompare={handleCompare} isComparing={isComparing} />}{activeTab === 'lawyer' && <LawyerPrepPanel model={documentModel} concerns={concerns} setConcerns={setConcerns} prep={prep} onGenerate={handlePrepare} isPreparing={isPreparing} checkedItems={checkedItems} setCheckedItems={setCheckedItems} onCopy={copyPreparation} onDownload={() => downloadMarkdown('clauseguard-lawyer-prep.md', prep?.markdown || '')} copied={copied} />}</div></section>
+          <section id="workspace" className="workspace-section"><div className="workspace-header"><div><span className="eyebrow">Active workspace</span><h2>{activeDocument.title}</h2><p>{activeDocument.filename} · {documentModel.metadata?.wordCount?.toLocaleString()} words · {pageSummary} · {activeDocument.source === 'sample' ? 'Fictional sample' : 'Session document'}</p></div><div className="workspace-header-actions"><span className={`mode-pill ${aiStatus.configured ? 'live' : ''}`}>{aiStatus.configured ? <><Sparkles size={13} /> Live model + local fallback</> : <><Lock size={13} /> Local grounded engine</>}</span><button className="icon-button" type="button" onClick={resetSession} aria-label="Clear current session" title="Clear session"><RefreshCw size={17} /></button></div></div><div className="workspace-tabs" role="tablist" aria-label="ClauseGuard workspace views">{TABS.map((tab) => { const Icon = tab.icon; return <button type="button" role="tab" aria-selected={activeTab === tab.id} className={activeTab === tab.id ? 'active' : ''} key={tab.id} onClick={() => setActiveTab(tab.id)}><Icon size={16} />{tab.label}{tab.id === 'overview' && <span>{documentModel.reviewAreaCount}</span>}</button>; })}</div><div role="tabpanel" aria-label={`${currentTab.label} view`} className="workspace-panel">{activeTab === 'overview' && <OverviewPanel model={documentModel} onExplain={(clause) => { setSelectedClauseId(clause.id); setActiveTab('plain'); setNotice(`Opened ${clause.heading} in the plain-language view.`); }} onAsk={(value) => { setActiveTab('ask'); handleAsk(value); }} />}{activeTab === 'plain' && <PlainLanguagePanel model={documentModel} selectedClauseId={selectedClauseId} onAsk={(value) => { setActiveTab('ask'); handleAsk(value); }} />}{activeTab === 'ask' && <AskPanel context={context} question={question} setQuestion={setQuestion} answer={answer} onAsk={handleAsk} isAsking={isAsking} onSuggested={(value) => handleAsk(value)} />}{activeTab === 'compare' && <ComparisonPanel activeDocument={activeDocument} model={documentModel} compareId={compareId} setCompareId={setCompareId} comparison={comparison} onCompare={handleCompare} isComparing={isComparing} />}{activeTab === 'lawyer' && <LawyerPrepPanel model={documentModel} concerns={concerns} setConcerns={setConcerns} prep={prep} onGenerate={handlePrepare} isPreparing={isPreparing} checkedItems={checkedItems} setCheckedItems={setCheckedItems} onCopy={copyPreparation} onDownload={() => downloadMarkdown('clauseguard-lawyer-prep.md', prep?.markdown || '')} copied={copied} />}</div></section>
         </main>
         <footer className="site-footer"><div className="footer-inner"><div><a className="brand footer-brand" href="#top"><span className="brand-icon"><Scale size={17} /></span><span>Clause<span>Guard</span></span></a><p>Understand the document. Keep the context. Prepare for the next step.</p></div><div className="footer-meta"><span><Lock size={13} /> Session-only processing</span><span><ShieldCheck size={13} /> Grounded responses</span><span><Scale size={13} /> Not legal advice</span></div></div></footer>
       </div>
